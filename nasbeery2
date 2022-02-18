@@ -179,3 +179,5 @@ if [ $ISPCONFIG -eq 1 ]; then
     sed -i 's/rar/mc/g' /tmp/ispconfig-ai/lib/os/class.ISPConfigDebianOS.inc.php
     php /tmp/ispconfig-ai/ispconfig.ai.php --lang=en --use-php=7.4,8.0,8.1 --no-mail --no-dns --no-firewall --no-roundcube --no-quota --unattended-upgrades --i-know-what-i-am-doing
 fi
+
+reboot
