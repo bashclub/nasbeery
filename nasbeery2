@@ -220,14 +220,5 @@ EOF
 systemctl enable smbd nmbd wsdd 
 systemctl restart smbd nmbd wsdd 
 
-if [ $ISPCONFIG -eq 1 ]; then
-    zfs create -o mountpoint=/var/www tank/ispconfig/www
-    zfs create -o mountpoint=/var/backup tank/ispconfig/backup
-    zfs create -o mountpoint=/var/lib/mysql tank/ispconfig/mysql
-    wget -O - https://get.ispconfig.org | sh -s -- --help
-    #Rar is not available, so we go with Midnight Commander:)
-    sed -i 's/rar/mc/g' /tmp/ispconfig-ai/lib/os/class.ISPConfigDebianOS.inc.php
-    php /tmp/ispconfig-ai/ispconfig.ai.php --lang=en --use-php=7.4,8.0,8.1 --no-mail --no-dns --no-firewall --no-roundcube --no-quota --unattended-upgrades --i-know-what-i-am-doing
-fi
 echo "nasbeery installation finished! rebooting..."
 reboot
