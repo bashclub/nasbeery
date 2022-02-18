@@ -1,0 +1,36 @@
+#!/bin/bash
+
+prog="$(basename "$0")"
+
+usage() {
+	cat >&2 <<-EOF
+	usage: $prog [-h] [-Z POOL]
+	  installs nasbeery onto your raspberry pi os
+    -Z POOL      Name of the zpool to create (default: tank)
+  ---------------------------------------------------------------------------
+    (C) 2022     nasbeery installer by bashclub (https://github.com/bashclub)
+  ---------------------------------------------------------------------------
+	EOF
+	exit $1
+}
+
+ZPOOL=tank
+
+
+while getopts "hZ:" opt; do
+  case $opt in
+    h) usage 0 ;;
+    Z) ZPOOL=$OPTARG ;;
+    *) usage 1 ;;
+  esac
+done
+shift $((OPTIND-1))
+
+
+zfs create -o mountpoint=/var/www $ZPOOL/ispconfig/www
+zfs create -o mountpoint=/var/backup $ZPOOL/ispconfig/backup
+zfs create -o mountpoint=/var/lib/mysql $ZPOOL/ispconfig/mysql
+wget -O - https://get.ispconfig.org | sh -s -- --help
+#Rar is not available, so we go with Midnight Commander:)
+sed -i 's/rar/mc/g' /tmp/ispconfig-ai/lib/os/class.ISPConfigDebianOS.inc.php
+php /tmp/ispconfig-ai/ispconfig.ai.php --lang=en --use-php=7.4,8.0,8.1 --no-mail --no-dns --no-firewall --no-roundcube --no-quota --unattended-upgrades --i-know-what-i-am-doing
