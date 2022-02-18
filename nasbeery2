@@ -171,7 +171,7 @@ EOF
 systemctl enable smbd nmbd wsdd 
 systemctl restart smbd nmbd wsdd 
 
-if [[ $ISPCONFIG -eq 1]]; then
+if [ $ISPCONFIG -eq 1 ]; then
     zfs create -o mountpoint=/var/www tank/ispconfig/www
     zfs create -o mountpoint=/var/backup tank/ispconfig/backup
     zfs create -o mountpoint=/var/lib/mysql tank/ispconfig/mysql
