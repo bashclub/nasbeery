@@ -1,0 +1,182 @@
+#!/bin/bash
+prog="$(basename "$0")"
+
+usage() {
+	cat >&2 <<-EOF
+	usage: $prog [-h] [-U USERNAME] [-P PASSWORD] [-H HOSTNAME] [-D DOMAIN] [-F]
+	  installs nasbeery onto your raspberry pi os
+    -U USERNAME  Username for SSH, Cockpit and SMB Login (default: nasbeery)
+    -P PASSWORD  Password for SSH, Cockpit and SMB Login (min. 8 chars, default: password prompt)
+    -H HOSTNAME  Hostname of this nasbeery (default: nasbeery)
+    -D DOMAIN    Domain name of this nasbeery (default: bashclub.lan)
+    -Z POOL      Name of the zpool to create (default: tank)
+    -S SHARE     Name of the SMB share to create (default: share)
+    -F           Enforce formatting disks - WARNING: Destroys all existing data
+    -I           Installs ISPconfig3
+  ---------------------------------------------------------------------------
+    (C) 2022     nasbeery installer by bashclub (https://github.com/bashclub)
+  ---------------------------------------------------------------------------
+	EOF
+	exit $1
+}
+
+USERNAME=nasbeery
+PASSWORD=NasBeery!22
+HOSTNAME=nasbeery
+DOMAIN=bashclub.lan
+FORMAT=0
+ISPCONFIG=0
+ZPOOL=tank
+SHARE=share
+
+while getopts "hU:P:H:D:FIZ:S:" opt; do
+  case $opt in
+    h) usage 0 ;;
+    U) USERNAME=$OPTARG ;;
+    P) PASSWORD=$OPTARG PASSWORD_REPEAT=$OPTARG ;;
+    H) HOSTNAME=$OPTARG ;;
+    D) DOMAIN=$OPTARG ;;
+    F) FORMAT=1 ;;
+    I) ISPCONFIG=1 ;;
+    Z) ZPOOL=$OPTARG ;;
+    S) SHARE=$OPTARG ;;
+    *) usage 1 ;;
+  esac
+done
+shift $((OPTIND-1))
+
+# Change password for Samba and Terminal
+while [[ "$PASSWORD" != "$PASSWORD_REPEAT" || ${#PASSWORD} -lt 8 ]]; do
+  PASSWORD=$(whiptail --backtitle "NASBEERY SETUP" --title "Set password!" --passwordbox "${PASSWORD_invalid_message}Please set a password for Terminal, Samba and Backupwireless\n(At least 8 characters!):" 10 75 3>&1 1>&2 2>&3)
+  PASSWORD_REPEAT=$(whiptail --backtitle "NASBEERY SETUP" --title "Set password!" --passwordbox "Please repeat the Password:" 10 70 3>&1 1>&2 2>&3)
+  PASSWORD_invalid_message="ERROR: Password is too short, or not matching! \n\n"
+done
+
+# check current zfs state
+if [[ $(lsmod | grep -E ^zfs) ]] && [[ $FORMAT -eq 0 ]]; then
+    # module is loaded
+    whiptail --title "Possible data loss!" \
+    --backtitle "NASBEERY SETUP" \
+    --yes-button "PRESERVE DATA" \
+    --no-button  "FORMAT DISKS!" \
+    --yesno "Would you like to preserve you existing ZFS data from a previous installation?" 10 75
+    FORMAT=$?
+fi
+
+# ask for ispconfig installation
+if [[ $ISPCONFIG -eq 0 ]]; then
+    whiptail --title "ISPConfig Setup!" \
+    --backtitle "INSTALL ISPCONFIG?" \
+    --yes-button "INSTALL ISPCONFIG" \
+    --no-button  "DO NOT INSTALL ISPCONFIG" \
+    --yesno "Would you like to to install ISPConfig on yout nasbeery?" 10 75
+    ISPCONFIG=$?
+fi
+
+# add extra apt keys
+apt-key adv --fetch-keys https://pkg.ltec.ch/public/conf/ltec-ag.gpg.key # wsdd repo
+
+# add extra apt repos
+echo "deb https://pkg.ltec.ch/public/ $(lsb_release -cs) main" > /etc/apt/sources.list.d/wsdd.list # wsdd repo
+echo "deb http://ftp.de.debian.org/debian/ bullseye-backports main contrib non-free" > /etc/apt/sources.list.d/bulleye-backports.list # backports repo
+
+# pin cockpit to buster backports
+cat << EOF > /etc/apt/preferences.d/99-cockpit
+Package: cockpit cockpit-*
+Pin: release a=bullseye-backports
+Pin-Priority: 900
+EOF
+
+# update system and install packages
+apt update
+DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" dist-upgrade
+DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install raspberrypi-kernel-headers acl samba-dsdb-modules samba-vfs-modules wsdd ntpdate git apt-transport-https gnupg2 software-properties-commonvim htop zfs-dkms zfsutils-linux zfs-auto-snapshot wsdd net-tools dnsutils
+DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install --no-install-recommends cockpit
+
+# activate zfs module 
+modprobe zfs
+
+# update time via ntp
+ntpdate-debian -b
+
+case $FORMAT in
+   0) echo "Your ZFS Data will be preserved";;
+   1) echo "Existing data on the drives will be deleted..."
+       zpool create -f -o autoexpand=on -o ashift=12 $ZPOOL mirror sda sdb;;
+   255) echo "[ESC] key pressed >> EXIT" &&  exit;;
+esac
+
+zfs create -o compression=lz4 $ZPOOL/$SHARE
+chmod -R 770 /$ZPOOL
+chown -R $USERNAME:root /$ZPOOL
+
+# set hostname
+echo "$HOSTNAME" > /etc/hostname
+cat << EOF > /etc/hosts
+# Host addresses
+127.0.0.1  localhost
+127.0.1.1  $HOSTNAME.$DOMAIN $HOSTNAME
+::1        localhost ip6-localhost ip6-loopback
+ff02::1    ip6-allnodes
+ff02::2    ip6-allrouters
+EOF
+
+# configure user
+useradd $USERNAME
+echo "$USERNAME:$PASSWORD" | chpasswd
+smbpasswd -x $USERNAME
+(echo $PASSWORD; echo $PASSWORD) | smbpasswd -a $USERNAME
+
+# install cockpit zfs manager
+git clone https://github.com/45drives/cockpit-zfs-manager.git /usr/src/cockpit-zfs-manager
+cp -r /usr/src/cockpit-zfs-manager/zfs /usr/share/cockpit
+
+# Install zfs-auto-snapshot and change Retention from 24 to 48h and 12 to 3 Month for more sense of usage
+sed -i 's/24/48/g' /etc/cron.hourly/zfs-auto-snapshot
+sed -i 's/12/3/g' /etc/cron.monthly/zfs-auto-snapshot
+
+echo -e 'PATH="/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin"\n*/1 * * * * root echo 14 > /sys/class/gpio/export 2> /dev/null;echo out > /sys/class/gpio/gpio14/direction ; zpool import -fa -d /dev/ > /dev/null; zpool list| grep -q ONLINE; echo \$? > /sys/class/gpio/gpio14/value' |  tee  "/etc/cron.d/raidled"
+
+# configure samba server
+cat << EOF > /etc/samba/smb.conf
+[global]
+    workgroup = WORKGROUP
+    log file = /var/log/samba/log.%m
+    max log size = 1000
+    logging = file
+    panic action = /usr/share/samba/panic-action %d
+
+    server role = standalone server
+    obey pam restrictions = yes
+    unix password sync = yes
+    passwd program = /usr/bin/passwd %u
+    passwd chat = *Enter\snew\s*\password:* %n\n *Retype\snew\s*\spassword:* %n\n *password\supdated\ssuccessfully* .
+    pam password change = yes
+    map to guest = bad user
+
+    vfs objects = shadow_copy2
+    shadow: snapdir = .zfs/snapshot
+    shadow: sort = desc
+    shadow: format = -%Y-%m-%d-%H%M
+    shadow: snapprefix = ^zfs-auto-snap_\(frequent\)\{0,1\}\(hourly\)\{0,1\}\(daily\)\{0,1\}\(monthly\)\{0,1\}\nshadow: delimiter = -20
+    
+[$SHARE]
+    comment = Main Share
+    path = /$ZPOOL/$SHARE
+    read only = No
+    create mask = 0660
+    directory mask = 0770
+EOF
+
+systemctl enable smbd nmbd wsdd 
+systemctl restart smbd nmbd wsdd 
+
+if [[ $ISPCONFIG -eq 1]]; then
+    zfs create -o mountpoint=/var/www tank/ispconfig/www
+    zfs create -o mountpoint=/var/backup tank/ispconfig/backup
+    zfs create -o mountpoint=/var/lib/mysql tank/ispconfig/mysql
+    wget -O - https://get.ispconfig.org | sh -s -- --help
+    #Rar is not available, so we go with Midnight Commander:)
+    sed -i 's/rar/mc/g' /tmp/ispconfig-ai/lib/os/class.ISPConfigDebianOS.inc.php
+    php /tmp/ispconfig-ai/ispconfig.ai.php --lang=en --use-php=7.4,8.0,8.1 --no-mail --no-dns --no-firewall --no-roundcube --no-quota --unattended-upgrades --i-know-what-i-am-doing
+fi
