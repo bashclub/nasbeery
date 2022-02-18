@@ -129,6 +129,55 @@ smbpasswd -x $USERNAME
 # install cockpit zfs manager
 git clone https://github.com/45drives/cockpit-zfs-manager.git /usr/src/cockpit-zfs-manager
 cp -r /usr/src/cockpit-zfs-manager/zfs /usr/share/cockpit
+mkdir -p /etc/cockpit/zfs/shares
+mkdir -p /etc/cockpit/zfs/snapshots
+cat << EOF > /etc/cockpit/zfs/config.json 
+{
+  "#1": "COCKPIT ZFS MANAGER",
+  "#2": "WARNING: DO NOT EDIT, AUTO-GENERATED CONFIGURATION",
+  "cockpit": {
+    "manage": true
+  },
+  "disks": {
+    "base2": false
+  },
+  "loglevel": "2",
+  "samba": {
+    "manage": true,
+    "windowscompatibility": true
+  },
+  "updates": {
+    "check": true
+  },
+  "zfs": {
+    "filesystem": {
+      "cloneorigin": false,
+      "quotarestrict": true,
+      "readonlylockdown": false,
+      "snapshotactions": true
+    },
+    "snapshot": {
+      "filesystemlist": true
+    },
+    "status": {
+      "errorcolors": true,
+      "trimunsupported": false
+    },
+    "storagepool": {
+      "activetab": 1,
+      "boot": true,
+      "bootlockdown": true,
+      "count": true,
+      "refreshall": false,
+      "root": true
+    }
+  }
+}
+EOF
+cat << EOF > /etc/cockpit/zfs/shares.conf 
+# COCKPIT ZFS MANAGER
+# WARNING: DO NOT EDIT, AUTO-GENERATED CONFIGURATION
+EOF
 
 # Install zfs-auto-snapshot and change Retention from 24 to 48h and 12 to 3 Month for more sense of usage
 sed -i 's/24/48/g' /etc/cron.hourly/zfs-auto-snapshot
