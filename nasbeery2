@@ -5,7 +5,7 @@ usage() {
 	cat >&2 <<-EOF
 	usage: $prog [-h] [-U USERNAME] [-P PASSWORD] [-H HOSTNAME] [-D DOMAIN] [-F]
 	  installs nasbeery onto your raspberry pi os
-    -U USERNAME  Username for SSH, Cockpit and SMB Login (default: nasbeery)
+    -U USERNAME  Username for SSH, Cockpit and SMB Login (default: pi)
     -P PASSWORD  Password for SSH, Cockpit and SMB Login (min. 8 chars, default: password prompt)
     -H HOSTNAME  Hostname of this nasbeery (default: nasbeery)
     -D DOMAIN    Domain name of this nasbeery (default: bashclub.lan)
@@ -21,7 +21,6 @@ usage() {
 }
 
 USERNAME=pi
-PASSWORD=Start!123
 HOSTNAME=nasbeery
 DOMAIN=bashclub.lan
 FORMAT=0
