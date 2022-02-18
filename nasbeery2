@@ -157,7 +157,8 @@ cat << EOF > /etc/samba/smb.conf
     shadow: snapdir = .zfs/snapshot
     shadow: sort = desc
     shadow: format = -%Y-%m-%d-%H%M
-    shadow: snapprefix = ^zfs-auto-snap_\(frequent\)\{0,1\}\(hourly\)\{0,1\}\(daily\)\{0,1\}\(monthly\)\{0,1\}\nshadow: delimiter = -20
+    shadow: snapprefix = ^zfs-auto-snap_\(frequent\)\{0,1\}\(hourly\)\{0,1\}\(daily\)\{0,1\}\(weekly\)\{0,1\}\(monthly\)\{0,1\}
+    shadow: delimiter = -20
     
 [$SHARE]
     comment = Main Share
