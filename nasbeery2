@@ -20,8 +20,8 @@ usage() {
 	exit $1
 }
 
-USERNAME=nasbeery
-PASSWORD=NasBeery!22
+USERNAME=pi
+PASSWORD=Start!123
 HOSTNAME=nasbeery
 DOMAIN=bashclub.lan
 FORMAT=0
