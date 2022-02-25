@@ -63,14 +63,14 @@ if [[ $(lsmod | grep -E ^zfs) ]] && [[ $FORMAT -eq 0 ]]; then
 fi
 
 # ask for ispconfig installation
-if [[ $ISPCONFIG -eq 0 ]]; then
-    whiptail --title "ISPConfig Setup!" \
-    --backtitle "INSTALL ISPCONFIG?" \
-    --yes-button "INSTALL ISPCONFIG" \
-    --no-button  "DO NOT INSTALL ISPCONFIG" \
-    --yesno "Would you like to to install ISPConfig on yout nasbeery?" 10 75
-    ISPCONFIG=$?
-fi
+#if [[ $ISPCONFIG -eq 0 ]]; then
+#    whiptail --title "ISPConfig Setup!" \
+#    --backtitle "INSTALL ISPCONFIG?" \
+#    --yes-button "INSTALL ISPCONFIG" \
+#    --no-button  "DO NOT INSTALL ISPCONFIG" \
+#    --yesno "Would you like to to install ISPConfig on yout nasbeery?" 10 75
+#    ISPCONFIG=$?
+#fi
 
 # add extra apt keys
 apt-key adv --fetch-keys https://pkg.ltec.ch/public/conf/ltec-ag.gpg.key # wsdd repo
