@@ -44,8 +44,11 @@ while getopts "hU:P:H:D:FIZ:S:" opt; do
 done
 shift $((OPTIND-1))
 
-if [[ ! $(ls $PWD/nasbeery.conf > /dev/null 2&>1) ]]; then
-  cat << EOF > $PWD/nasbeery.conf
+if [[ $(ls nasbeery.conf) ]]; then
+  source nasbeery.conf
+  PASSWORD_REPEAT=$PASSWORD
+else
+  cat << EOF > nasbeery.conf
 USERNAME=$USERNAME
 PASSWORD='$PASSWORD'
 HOSTNAME=$HOSTNAME
@@ -55,8 +58,6 @@ ADDONS=$ADDONS
 ZPOOL=$ZPOOL
 SHARE=$SHARE
 EOF
-else
-  source $PWD/nasbeery.conf
 fi
 
 # Change password for Samba and Terminal
