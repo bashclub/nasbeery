@@ -46,11 +46,9 @@ shift $((OPTIND-1))
 
 if [[ $(ls nasbeery.conf) ]]; then
   source nasbeery.conf
-  PASSWORD_REPEAT=$PASSWORD
 else
   cat << EOF > nasbeery.conf
 USERNAME=$USERNAME
-PASSWORD='$PASSWORD'
 HOSTNAME=$HOSTNAME
 DOMAIN=$DOMAIN
 FORMAT=$FORMAT
