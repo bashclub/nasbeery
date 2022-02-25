@@ -89,7 +89,7 @@ EOF
 # update system and install packages
 apt update
 DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" dist-upgrade
-DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install raspberrypi-kernel-headers acl samba-dsdb-modules samba-vfs-modules wsdd ntpdate git apt-transport-https gnupg2 software-properties-common vim htop zfs-dkms zfsutils-linux zfs-auto-snapshot wsdd net-tools dnsutils
+DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install raspberrypi-kernel-headers acl samba-dsdb-modules samba-vfs-modules samba wsdd ntpdate git apt-transport-https gnupg2 software-properties-common vim htop zfs-dkms zfsutils-linux zfs-auto-snapshot wsdd net-tools dnsutils
 DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install --no-install-recommends cockpit
 
 # activate zfs module 
