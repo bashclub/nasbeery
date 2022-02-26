@@ -9,7 +9,6 @@ usage() {
     -P PASSWORD  Password for SSH, Cockpit and SMB Login (min. 8 chars, default: password prompt)
     -H HOSTNAME  Hostname of this nasbeery (default: nasbeery)
     -D DOMAIN    Domain name of this nasbeery (default: bashclub.lan)
-    -Z POOL      Name of the zpool to create (default: tank)
     -S SHARE     Name of the SMB share to create (default: share)
     -A ADDONS    Comma separated list of addons to install (ispconfig, docker)
     -F           Enforce formatting disks - WARNING: Destroys all existing data
@@ -37,7 +36,6 @@ while getopts "hU:P:H:D:FIZ:S:" opt; do
     D) DOMAIN=$OPTARG ;;
     F) FORMAT=1 ;;
     A) ADDONS=$OPTARG ;;
-    Z) ZPOOL=$OPTARG ;;
     S) SHARE=$OPTARG ;;
     *) usage 1 ;;
   esac
@@ -53,7 +51,6 @@ HOSTNAME=$HOSTNAME
 DOMAIN=$DOMAIN
 FORMAT=$FORMAT
 ADDONS=$ADDONS
-ZPOOL=$ZPOOL
 SHARE=$SHARE
 EOF
 fi
@@ -78,7 +75,7 @@ fi
 
 # add extra apt keys
 echo "Add wsdd apt repo key"
-sudo apt-key adv --fetch-keys https://pkg.ltec.ch/public/conf/ltec-ag.gpg.key > /dev/null 2&>1
+sudo apt-key adv --fetch-keys https://pkg.ltec.ch/public/conf/ltec-ag.gpg.key
 
 # add extra apt repos
 echo "Add wsdd apt repo url"
