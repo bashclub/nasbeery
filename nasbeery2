@@ -99,7 +99,7 @@ EOF
 echo "Updating package lists"
 sudo apt -qq update
 echo "Installing dist-upgrade"
-DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical sudo apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" dist-upgrade > /dev/null 2&>1
+DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical sudo apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" dist-upgrade
 echo "Detecting Architecture"
 if [[ $(dpkg --get-selections | grep -m1 "raspberrypi-kernel") ]]; then
 	headers="raspberrypi-kernel-headers"
@@ -107,9 +107,9 @@ elif [[ $(dpkg --get-selections | grep -m1 "linux-image-amd64") ]]; then
 	headers="linux-headers-amd64"
 fi
 echo "Intalling required packages"
-DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical sudo apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install $headers acl samba-dsdb-modules samba-vfs-modules samba wsdd ntpdate git apt-transport-https gnupg2 software-properties-common vim htop zfs-dkms zfsutils-linux zfs-auto-snapshot wsdd net-tools dnsutils > /dev/null 2&>1
+DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical sudo apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install $headers acl samba-dsdb-modules samba-vfs-modules samba wsdd ntpdate git apt-transport-https gnupg2 software-properties-common vim htop zfs-dkms zfsutils-linux zfs-auto-snapshot wsdd net-tools dnsutils
 echo "Installing cockpit"
-DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical sudo apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install --no-install-recommends cockpit > /dev/null 2&>1
+DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical sudo apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install --no-install-recommends cockpit
 
 echo "Activate zfs module"
 sudo modprobe zfs
