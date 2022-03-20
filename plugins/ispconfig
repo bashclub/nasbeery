@@ -26,10 +26,16 @@ while getopts "hZ:" opt; do
 done
 shift $((OPTIND-1))
 
+if [ ! $(zfs list $ZPOOL/ispconfig/www) ]; then
+  zfs create -o mountpoint=/var/www $ZPOOL/ispconfig/www
+fi
+if [ ! $(zfs list $ZPOOL/ispconfig/backup) ]; then
+  zfs create -o mountpoint=/var/backup $ZPOOL/ispconfig/backup
+fi
+if [ ! $(zfs list $ZPOOL/ispconfig/mysql) ]; then
+  zfs create -o mountpoint=/var/lib/mysql $ZPOOL/ispconfig/mysql
+fi
 
-zfs create -o mountpoint=/var/www $ZPOOL/ispconfig/www
-zfs create -o mountpoint=/var/backup $ZPOOL/ispconfig/backup
-zfs create -o mountpoint=/var/lib/mysql $ZPOOL/ispconfig/mysql
 wget -O - https://get.ispconfig.org | sh -s -- --help
 #Rar is not available, so we go with Midnight Commander:)
 sed -i 's/rar/mc/g' /tmp/ispconfig-ai/lib/os/class.ISPConfigDebianOS.inc.php
