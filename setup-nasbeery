@@ -26,6 +26,7 @@ FORMAT=0
 ADDONS=
 ZPOOL=tank
 SHARE=share
+BASE_REPO=https://github.com/thorstenspille/nasbeery
 
 while getopts "hU:P:H:D:FIZ:S:" opt; do
   case $opt in
@@ -269,6 +270,12 @@ cat << EOF | sudo tee -i /etc/samba/smb.conf
     create mask = 0660
     directory mask = 0770
 EOF
+
+#### PLUGIN INSTALLATION ####
+for addon in $ADDONS; do
+  wget -O ./$addon $base_repo/raw/main/plugins/$addon
+  bash ./$addon -Z $ZPOOL
+done
 
 echo "Restart samba services"
 sudo systemctl enable smbd nmbd wsdd
