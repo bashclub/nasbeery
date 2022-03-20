@@ -27,8 +27,12 @@ done
 shift $((OPTIND-1))
 
 # create zfs filesystems
-zfs create -o com.sun:auto-snapshot=false -o mountpoint=/var/lib/docker $ZPOOL/docker
-zfs create -o com.sun:auto-snapshot=true -o mountpoint=/portainer $ZPOOL/portainer
+if [ ! $(zfs list $ZPOOL/docker) ]; then
+  zfs create -o com.sun:auto-snapshot=false -o mountpoint=/var/lib/docker $ZPOOL/docker
+fi
+if [ ! $(zfs list $ZPOOL/portainer) ]; then
+  zfs create -o com.sun:auto-snapshot=true -o mountpoint=/portainer $ZPOOL/portainer
+fi
 
 # add docker repository
 apt-key adv --fetch-keys https://download.docker.com/linux/debian/gpg
@@ -40,7 +44,7 @@ DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt install -y -qq --no-
 
 # install portainer
 cd /portainer
-mkdir data
+mkdir -p data
 cat << EOF > /portainer/docker-compose.yml
 version: '3.2'
 services:
