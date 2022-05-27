@@ -101,6 +101,8 @@ DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical sudo apt -y -qq -o DPkg:
 echo "Detecting Architecture"
 if [[ $(dpkg --get-selections | grep -m1 "raspberrypi-kernel") ]]; then
 	headers="raspberrypi-kernel-headers"
+elif [[ $(dpkg --get-selections | grep -E -m1 "linux-image-current-rockchip64") ]]; then
+	headers="linux-headers-current-rockchip64"
 elif [[ $(dpkg --get-selections | grep -E -m1 "linux-image-current-meson64") ]]; then
 	headers="linux-headers-current-meson64"
 elif [[ $(dpkg --get-selections | grep -E -m1 "linux-image-edge-meson64") ]]; then
