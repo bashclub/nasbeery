@@ -19,14 +19,14 @@ usage() {
 	exit $1
 }
 
-USERNAME=pi
+USERNAME=nasbeery
 HOSTNAME=nasbeery
 DOMAIN=bashclub.lan
 FORMAT=0
 ADDONS=
 ZPOOL=tank
 SHARE=share
-BASE_REPO=https://github.com/thorstenspille/nasbeery
+BASE_REPO=https://github.com/bashclub/nasbeery
 
 while getopts "hU:P:H:D:FIZ:S:" opt; do
   case $opt in
@@ -82,6 +82,12 @@ sudo apt-key adv --fetch-keys https://pkg.ltec.ch/public/conf/ltec-ag.gpg.key
 echo "Add wsdd apt repo url"
 echo "deb https://pkg.ltec.ch/public/ $(lsb_release -cs) main" | sudo tee -i /etc/apt/sources.list.d/wsdd.list
 
+echo "add 45drives repo key"
+apt-key adv --fetch-keys https://repo.45drives.com/key/gpg.asc
+
+echo "Add 45drives apt repo url"
+echo "deb https://repo.45drives.com/debian focal main" > /etc/apt/sources.list.d/45drives.list
+
 echo "Add debian bullseye backports repo"
 echo "deb http://ftp.de.debian.org/debian/ bullseye-backports main contrib non-free" | sudo tee -i /etc/apt/sources.list.d/bulleye-backports.list
 
@@ -111,9 +117,10 @@ elif [[ $(dpkg --get-selections | grep -m1 "linux-image-amd64") ]]; then
 	headers="linux-headers-amd64"
 fi
 echo "Intalling required packages"
-DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical sudo apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install $headers acl samba-dsdb-modules samba-vfs-modules samba wsdd ntpdate git apt-transport-https gnupg2 software-properties-common vim htop zfs-dkms zfsutils-linux zfs-auto-snapshot wsdd net-tools dnsutils
+DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical sudo apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install $headers wsdd ntpdate git apt-transport-https gnupg2 software-properties-common vim htop net-tools dnsutils
+DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical sudo apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install -t bullseye-backports acl samba-dsdb-modules samba-vfs-modules samba zfs-dkms zfsutils-linux zfs-auto-snapshot wsdd 
 echo "Installing cockpit"
-DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical sudo apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install --no-install-recommends cockpit
+DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical sudo apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install --no-install-recommends cockpit cockpit-identities cockpit-file-sharing cockpit-navigator cockpit-zfs-manager cockpit-benchmark
 
 echo "Activate zfs module"
 sudo modprobe zfs
@@ -167,19 +174,7 @@ sudo useradd $USERNAME
 echo "$USERNAME:$PASSWORD" | sudo chpasswd
 sudo smbpasswd -x $USERNAME
 (echo $PASSWORD; echo $PASSWORD) | sudo smbpasswd -a $USERNAME
-
-echo "Install or update cockpit zfs manager"
-if [[ $(ls /usr/src/cockpit-zfs-manager) ]] ; then
-	cd /usr/src/cockpit-zfs-manager
-	sudo git config pull.rebase true
-	sudo git pull
-else
-	sudo git clone https://github.com/45drives/cockpit-zfs-manager.git /usr/src/cockpit-zfs-manager
-fi
-sudo cp -r /usr/src/cockpit-zfs-manager/zfs /usr/share/cockpit
-
-sudo mkdir -p /etc/cockpit/zfs/shares
-sudo mkdir -p /etc/cockpit/zfs/snapshots
+usermod -aG sudo $USERNAME
 
 echo "Writing cockpit configuration"
 cat << EOF | sudo tee -i /etc/cockpit/zfs/config.json
@@ -244,6 +239,11 @@ echo -e 'PATH="/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin"\n*/1 * * * * root 
 echo "Write samba server configuration"
 cat << EOF | sudo tee -i /etc/samba/smb.conf
 [global]
+    include = registry
+EOF
+
+cat << EOF | sudo tee -i /etc/samba/import.templates
+[global]
     workgroup = WORKGROUP
     log file = /var/log/samba/log.%m
     max log size = 1000
@@ -272,6 +272,8 @@ cat << EOF | sudo tee -i /etc/samba/smb.conf
     create mask = 0660
     directory mask = 0770
 EOF
+
+net conf import /etc/samba/import.template
 
 #### PLUGIN INSTALLATION ####
 for addon in $ADDONS; do
