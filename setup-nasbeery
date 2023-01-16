@@ -26,7 +26,7 @@ FORMAT=0
 ADDONS=
 ZPOOL=tank
 SHARE=share
-BASE_REPO=https://github.com/thorstenspille/nasbeery
+BASE_REPO=https://github.com/bashclub/nasbeery
 
 while getopts "hU:P:H:D:FIZ:S:" opt; do
   case $opt in
