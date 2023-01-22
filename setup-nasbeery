@@ -74,20 +74,6 @@ if [[ $(lsmod | grep -E ^zfs) ]] && [[ $FORMAT -eq 0 ]]; then
     FORMAT=$?
 fi
 
-# add extra apt keys
-echo "Add wsdd apt repo key"
-wget -O - https://pkg.ltec.ch/public/conf/ltec-ag.gpg.key | tee -i /etc/apt/trusted.gpg.d/wsdd.gpg
-
-# add extra apt repos
-echo "Add wsdd apt repo url"
-echo "deb [signed-by=/etc/apt/trusted.gpg.d/wsdd.gpg] https://pkg.ltec.ch/public/ $(lsb_release -cs) main" | tee -i /etc/apt/sources.list.d/wsdd.list
-
-echo "add 45drives repo key"
-wget -O - https://repo.45drives.com/key/gpg.asc | tee -i /etc/apt/trusted.gpg.d/45drives.gpg
-
-echo "Add 45drives apt repo url"
-echo "deb [signed-by=/etc/apt/trusted.gpg.d/45drives.gpg,arch=amd64] https://repo.45drives.com/debian focal main" > /etc/apt/sources.list.d/45drives.list
-
 echo "Add debian bullseye backports repo"
 echo "deb http://ftp.de.debian.org/debian/ bullseye-backports main contrib non-free" | tee -i /etc/apt/sources.list.d/bulleye-backports.list
 
@@ -117,7 +103,25 @@ elif [[ $(dpkg --get-selections | grep -m1 "linux-image-amd64") ]]; then
 	headers="linux-headers-amd64"
 fi
 echo "Intalling required packages"
-DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install $headers wsdd ntpdate git apt-transport-https gnupg2 software-properties-common vim htop net-tools dnsutils
+DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install $headers ntpdate git apt-transport-https gnupg2 software-properties-common vim htop net-tools dnsutils
+
+# add extra apt keys
+echo "Add wsdd apt repo key"
+wget -O - https://pkg.ltec.ch/public/conf/ltec-ag.gpg.key | gpg --dearmor | tee -i /etc/apt/trusted.gpg.d/wsdd.gpg
+
+# add extra apt repos
+echo "Add wsdd apt repo url"
+echo "deb [signed-by=/etc/apt/trusted.gpg.d/wsdd.gpg] https://pkg.ltec.ch/public/ $(lsb_release -cs) main" | tee -i /etc/apt/sources.list.d/wsdd.list
+
+echo "add 45drives repo key"
+wget -O - https://repo.45drives.com/key/gpg.asc | gpg --dearmor | tee -i /etc/apt/trusted.gpg.d/45drives.gpg
+
+echo "Add 45drives apt repo url"
+echo "deb [signed-by=/etc/apt/trusted.gpg.d/45drives.gpg,arch=amd64] https://repo.45drives.com/debian focal main" > /etc/apt/sources.list.d/45drives.list
+
+echo "Updating package lists"
+apt -qq update
+
 DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install -t bullseye-backports acl samba-dsdb-modules samba-vfs-modules samba zfs-dkms zfsutils-linux zfs-auto-snapshot wsdd 
 echo "Installing cockpit"
 DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install --no-install-recommends cockpit cockpit-identities cockpit-file-sharing cockpit-navigator cockpit-zfs-manager cockpit-benchmark
