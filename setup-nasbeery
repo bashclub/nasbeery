@@ -3,15 +3,14 @@ prog="$(basename "$0")"
 
 usage() {
 	cat >&2 <<-EOF
-	usage: $prog [-h] [-U USERNAME] [-P PASSWORD] [-H HOSTNAME] [-D DOMAIN] [-Z POOL] [-S SHARE] [-A ADDONS] [-F]
+	usage: $prog [-h] [-U USERNAME] [-P PASSWORD] [-H HOSTNAME] [-D DOMAIN] [-A ADDONS] [-S SHARE]
 	  installs nasbeery onto your raspberry pi os
     -U USERNAME  Username for SSH, Cockpit and SMB Login (default: pi)
     -P PASSWORD  Password for SSH, Cockpit and SMB Login (min. 8 chars, default: password prompt)
     -H HOSTNAME  Hostname of this nasbeery (default: nasbeery)
     -D DOMAIN    Domain name of this nasbeery (default: bashclub.lan)
-    -S SHARE     Name of the SMB share to create (default: share)
     -A ADDONS    Comma separated list of addons to install (ispconfig, docker)
-    -F           Enforce formatting disks - WARNING: Destroys all existing data
+    -S SHARE     Name of the SMB share to create (default: share)
   ---------------------------------------------------------------------------
     (C) 2022     nasbeery installer by bashclub (https://github.com/bashclub)
   ---------------------------------------------------------------------------
@@ -28,14 +27,13 @@ ZPOOL=tank
 SHARE=share
 BASE_REPO=https://github.com/bashclub/nasbeery
 
-while getopts "hU:P:H:D:FIZ:S:" opt; do
+while getopts "hU:P:H:D:A:S:" opt; do
   case $opt in
     h) usage 0 ;;
     U) USERNAME=$OPTARG ;;
     P) PASSWORD=$OPTARG PASSWORD_REPEAT=$OPTARG ;;
     H) HOSTNAME=$OPTARG ;;
     D) DOMAIN=$OPTARG ;;
-    F) FORMAT=1 ;;
     A) ADDONS=$OPTARG ;;
     S) SHARE=$OPTARG ;;
     *) usage 1 ;;
@@ -50,7 +48,6 @@ else
 USERNAME=$USERNAME
 HOSTNAME=$HOSTNAME
 DOMAIN=$DOMAIN
-FORMAT=$FORMAT
 ADDONS=$ADDONS
 SHARE=$SHARE
 EOF
@@ -63,16 +60,13 @@ while [[ "$PASSWORD" != "$PASSWORD_REPEAT" || ${#PASSWORD} -lt 8 ]]; do
   PASSWORD_invalid_message="ERROR: Password is too short, or not matching! \n\n"
 done
 
-# check current zfs state
-if [[ $(lsmod | grep -E ^zfs) ]] && [[ $FORMAT -eq 0 ]]; then
-    # module is loaded
-    whiptail --title "Possible data loss!" \
-    --backtitle "NASBEERY SETUP" \
-    --yes-button "PRESERVE DATA" \
-    --no-button  "FORMAT DISKS!" \
-    --yesno "Would you like to preserve you existing ZFS data from a previous installation?" 10 75
-    FORMAT=$?
-fi
+
+whiptail --title "Possible data loss!" \
+--backtitle "NASBEERY SETUP" \
+--yes-button "PRESERVE DATA" \
+--no-button  "FORMAT DISKS!" \
+--yesno "Would you like to preserve you existing ZFS data from a previous installation?" 10 75
+FORMAT=$?
 
 # pin cockpit to buster backports
 echo "Configure apt to install cockpit from backports repo"
@@ -86,6 +80,9 @@ grep contrib /etc/apt/sources.list
 if [ $? -gt 0 ]; then
   sed -i "s/main/main contrib non-free/g" /etc/apt/sources.list
 fi
+
+echo "Add debian bullseye backports repo"
+echo "deb http://ftp.de.debian.org/debian/ bullseye-backports main contrib non-free" | tee -i /etc/apt/sources.list.d/bulleye-backports.list
 
 # update system and install packages
 echo "Updating package lists"
@@ -107,12 +104,6 @@ fi
 echo "Intalling required packages"
 DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install $headers ntpdate git apt-transport-https gnupg2 software-properties-common vim htop net-tools dnsutils
 
-echo "Installing zfs"
-DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install --no-install-recommends zfs-dkms zfsutils-linux zfs-auto-snapshot
-
-echo "Add debian bullseye backports repo"
-echo "deb http://ftp.de.debian.org/debian/ bullseye-backports main contrib non-free" | tee -i /etc/apt/sources.list.d/bulleye-backports.list
-
 # add extra apt keys
 echo "Add wsdd apt repo key"
 wget -O - https://pkg.ltec.ch/public/conf/ltec-ag.gpg.key | gpg --dearmor | tee -i /etc/apt/trusted.gpg.d/wsdd.gpg
@@ -130,7 +121,7 @@ echo "deb [signed-by=/etc/apt/trusted.gpg.d/45drives.gpg arch=amd64] https://rep
 echo "Updating package lists"
 apt -qq update
 echo "Installing samba"
-DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install -t bullseye-backports acl samba-dsdb-modules samba-vfs-modules samba winbind wsdd 
+DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install -t bullseye-backports acl samba-dsdb-modules samba-vfs-modules samba winbind wsdd zfs-dkms zfsutils-linux zfs-auto-snapshot
 echo "Installing cockpit"
 DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install --no-install-recommends cockpit cockpit-identities cockpit-file-sharing cockpit-navigator cockpit-zfs-manager cockpit-benchmark
 
@@ -141,7 +132,13 @@ echo "Update time via ntp"
 ntpdate-debian -b > /dev/null
 
 rootfs=$(grep " / " /proc/mounts | cut -d'/' -f3)
-zdisks=$(echo $(lsblk -nd -I 8,259,179 -o name | grep -v ${rootfs:0:3}) | cut -d' ' -f1-2)
+if [[ "$rootfs" == *"nvme"* ]] || [[ "$rootfs" == *"mmcblk"* ]]; then
+  rootdisk=${rootfs::-3}
+else
+  rootdisk=${rootfs::1}
+fi
+
+zdisks=$(echo $(lsblk -nd -I 8,259,179 -o name | grep -v ${rootdisk}) | cut -d' ' -f1-2)
 case $FORMAT in
    0) echo "Your ZFS Data will be preserved";;
    1) echo "Existing data on the drives will be deleted..."
