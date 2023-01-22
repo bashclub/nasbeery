@@ -141,7 +141,7 @@ echo "Update time via ntp"
 ntpdate-debian -b > /dev/null
 
 rootfs=$(grep " / " /proc/mounts | cut -d'/' -f3)
-zdisks=$(echo $(lsblk -nd -I 8,259 -o name | grep -v ${rootfs:0:3}) | cut -d' ' -f1-2)
+zdisks=$(echo $(lsblk -nd -I 8,259,179 -o name | grep -v ${rootfs:0:3}) | cut -d' ' -f1-2)
 case $FORMAT in
    0) echo "Your ZFS Data will be preserved";;
    1) echo "Existing data on the drives will be deleted..."
