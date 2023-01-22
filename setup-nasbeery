@@ -54,7 +54,7 @@ EOF
 fi
 
 # Change password for Samba and Terminal
-while [[ "$PASSWORD" != "$PASSWORD_REPEAT" || ${#PASSWORD} -lt 8 ]]; do
+while [[ "$PASSWORD" != "$PASSWORD_REPEAT" || ${#PASSWORD} -le 8 ]]; do
   PASSWORD=$(whiptail --backtitle "NASBEERY SETUP" --title "Set password!" --passwordbox "${PASSWORD_invalid_message}Please set a password for Terminal, Samba and Backupwireless\n(At least 8 characters!):" 10 75 3>&1 1>&2 2>&3)
   PASSWORD_REPEAT=$(whiptail --backtitle "NASBEERY SETUP" --title "Set password!" --passwordbox "Please repeat the Password:" 10 70 3>&1 1>&2 2>&3)
   PASSWORD_invalid_message="ERROR: Password is too short, or not matching! \n\n"
@@ -102,7 +102,7 @@ elif [[ $(dpkg --get-selections | grep -m1 "linux-image-amd64") ]]; then
 	headers="linux-headers-amd64"
 fi
 echo "Intalling required packages"
-DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install $headers ntpdate git apt-transport-https gnupg2 software-properties-common vim htop net-tools dnsutils
+DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install $headers ntpdate git apt-transport-https gnupg2 software-properties-common vim htop net-tools dnsutils dpkg-dev
 
 # add extra apt keys
 echo "Add wsdd apt repo key"
@@ -122,6 +122,20 @@ echo "Updating package lists"
 apt -qq update
 echo "Installing samba"
 DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install -t bullseye-backports acl samba-dsdb-modules samba-vfs-modules samba winbind wsdd zfs-dkms zfsutils-linux zfs-auto-snapshot
+
+if [[ "$(arch)" == "aarch64" ]]; then
+  znapzend_version=$(apt search znapzend 2>/dev/null | grep znapzend | cut -d ' ' -f2)
+  wget -O znapzend_${znapzend_version}_amd64.deb https://repo.45drives.com/debian/pool/main/z/znapzend/znapzend_${znapzend_version}_amd64.deb
+  mkdir znapzend
+  dpkg-deb -R znapzend_${znapzend_version}_amd64.deb ./znapzend
+  sed -i "s/amd64/aarch64/g" ./znapzend/DEBIAN/control
+  sed -i "s/x86_64-linux-gnu/aarch64-linux-gnu/g" znapzend/usr/bin/*
+  mv znapzend/usr/lib/x86_64-linux-gnu znapzend/usr/lib/aarch64-linux-gnu
+  dpkg-deb -b znapzend znapzend_${znapzend_version}_aarch64.deb
+  apt install ./znapzend_${znapzend_version}_aarch64.deb
+fi
+
+
 echo "Installing cockpit"
 DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install --no-install-recommends cockpit cockpit-identities cockpit-file-sharing cockpit-navigator cockpit-zfs-manager cockpit-benchmark
 
