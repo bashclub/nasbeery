@@ -74,9 +74,6 @@ if [[ $(lsmod | grep -E ^zfs) ]] && [[ $FORMAT -eq 0 ]]; then
     FORMAT=$?
 fi
 
-echo "Add debian bullseye backports repo"
-echo "deb http://ftp.de.debian.org/debian/ bullseye-backports main contrib non-free" | tee -i /etc/apt/sources.list.d/bulleye-backports.list
-
 # pin cockpit to buster backports
 echo "Configure apt to install cockpit from backports repo"
 cat << EOF | tee -i /etc/apt/preferences.d/99-cockpit
@@ -105,6 +102,12 @@ fi
 echo "Intalling required packages"
 DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install $headers ntpdate git apt-transport-https gnupg2 software-properties-common vim htop net-tools dnsutils
 
+echo "Installing zfs"
+DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install --no-install-recommends zfs-dkms zfsutils-linux zfs-auto-snapshot
+
+echo "Add debian bullseye backports repo"
+echo "deb http://ftp.de.debian.org/debian/ bullseye-backports main contrib non-free" | tee -i /etc/apt/sources.list.d/bulleye-backports.list
+
 # add extra apt keys
 echo "Add wsdd apt repo key"
 wget -O - https://pkg.ltec.ch/public/conf/ltec-ag.gpg.key | gpg --dearmor | tee -i /etc/apt/trusted.gpg.d/wsdd.gpg
@@ -121,9 +124,6 @@ echo "deb [signed-by=/etc/apt/trusted.gpg.d/45drives.gpg arch=amd64] https://rep
 
 echo "Updating package lists"
 apt -qq update
-
-echo "Installing zfs"
-DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install --no-install-recommends zfs-dkms zfsutils-linux zfs-auto-snapshot
 echo "Installing samba"
 DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install -t bullseye-backports acl samba-dsdb-modules samba-vfs-modules samba winbind wsdd 
 echo "Installing cockpit"
