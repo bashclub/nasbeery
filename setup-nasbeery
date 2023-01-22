@@ -43,7 +43,7 @@ while getopts "hU:P:H:D:FIZ:S:" opt; do
 done
 shift $((OPTIND-1))
 
-if [[ $(ls nasbeery.conf) ]]; then
+if [ -f nasbeery.conf ]; then
   source nasbeery.conf
 else
   cat << EOF > nasbeery.conf
@@ -81,6 +81,11 @@ Package: cockpit cockpit-*
 Pin: release a=bullseye-backports
 Pin-Priority: 900
 EOF
+
+grep contrib /etc/apt/sources.list
+if [ $? -gt 0 ]; then
+  sed -i "s/main/main contrib non-free/g" /etc/apt/sources.list
+fi
 
 # update system and install packages
 echo "Updating package lists"
@@ -183,7 +188,7 @@ useradd $USERNAME
 echo "$USERNAME:$PASSWORD" | chpasswd
 smbpasswd -x $USERNAME
 (echo $PASSWORD; echo $PASSWORD) | smbpasswd -a $USERNAME
-usermod -aG $USERNAME
+usermod -aG sudo $USERNAME
 
 echo "Writing cockpit configuration"
 cat << EOF | tee -i /etc/cockpit/zfs/config.json
