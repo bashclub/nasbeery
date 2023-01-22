@@ -94,6 +94,8 @@ if [[ $(dpkg --get-selections | grep -m1 "raspberrypi-kernel") ]]; then
 	headers="raspberrypi-kernel-headers"
 elif [[ $(dpkg --get-selections | grep -E -m1 "linux-image-current-rockchip64") ]]; then
 	headers="linux-headers-current-rockchip64"
+elif [[ $(dpkg --get-selections | grep -E -m1 "linux-image-edge-rockchip64") ]]; then
+	headers="linux-edge-current-rockchip64"
 elif [[ $(dpkg --get-selections | grep -E -m1 "linux-image-current-meson64") ]]; then
 	headers="linux-headers-current-meson64"
 elif [[ $(dpkg --get-selections | grep -E -m1 "linux-image-edge-meson64") ]]; then
@@ -133,8 +135,8 @@ if [[ "$(arch)" == "aarch64" ]]; then
   mv znapzend/usr/lib/x86_64-linux-gnu znapzend/usr/lib/aarch64-linux-gnu
   dpkg-deb -b znapzend znapzend_${znapzend_version}_arm64.deb
   apt install ./znapzend_${znapzend_version}_arm64.deb
+  systemctl disable znapzend.service
 fi
-
 
 echo "Installing cockpit"
 DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install --no-install-recommends cockpit cockpit-identities cockpit-file-sharing cockpit-navigator cockpit-zfs-manager cockpit-benchmark
@@ -195,7 +197,7 @@ ff02::2    ip6-allrouters
 EOF
 
 echo "Configuring user"
-useradd $USERNAME
+useradd -m -s /bin/bash $USERNAME
 echo "$USERNAME:$PASSWORD" | chpasswd
 smbpasswd -x $USERNAME
 (echo $PASSWORD; echo $PASSWORD) | smbpasswd -a $USERNAME
