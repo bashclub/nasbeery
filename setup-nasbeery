@@ -136,6 +136,7 @@ if [[ "$(arch)" == "aarch64" ]]; then
   dpkg-deb -b znapzend znapzend_${znapzend_version}_arm64.deb
   apt install ./znapzend_${znapzend_version}_arm64.deb
   systemctl disable znapzend.service
+  rm -r znapzend*
 fi
 
 echo "Installing cockpit"
