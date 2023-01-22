@@ -122,9 +122,10 @@ echo "deb [signed-by=/etc/apt/trusted.gpg.d/45drives.gpg arch=amd64] https://rep
 echo "Updating package lists"
 apt -qq update
 
-DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install -t bullseye-backports acl samba-dsdb-modules samba-vfs-modules samba winbind wsdd 
 echo "Installing zfs"
 DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install --no-install-recommends zfs-dkms zfsutils-linux zfs-auto-snapshot
+echo "Installing samba"
+DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install -t bullseye-backports acl samba-dsdb-modules samba-vfs-modules samba winbind wsdd 
 echo "Installing cockpit"
 DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install --no-install-recommends cockpit cockpit-identities cockpit-file-sharing cockpit-navigator cockpit-zfs-manager cockpit-benchmark
 
@@ -134,11 +135,13 @@ modprobe zfs
 echo "Update time via ntp"
 ntpdate-debian -b > /dev/null
 
+rootfs=$(grep " / " /proc/mounts | cut -d'/' -f3)
+zdisks=$(echo $(lsblk -nd -I 8,259 -o name | grep -v $rootfs) | cut -d' ' -f1-2)
 case $FORMAT in
    0) echo "Your ZFS Data will be preserved";;
    1) echo "Existing data on the drives will be deleted..."
         zpool destroy $ZPOOL
-        zpool create -f -o autoexpand=on -o ashift=12 $ZPOOL mirror sda sdb
+        zpool create -f -o autoexpand=on -o ashift=12 $ZPOOL mirror $zdisks
         echo "Regenerate ssh host keys"
         rm -f /etc/ssh/ssh_host_*
         ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N ""
@@ -227,8 +230,9 @@ cat << EOF | tee -i /etc/cockpit/zfs/config.json
 }
 EOF
 
-if [[ $(ls /etc/cockpit/zfs/shares.conf) ]]; then
+if [ -f /etc/cockpit/zfs/shares.conf ]; then
 	echo "Creating cockpit zfs shares conf"
+  mkdir -p /etc/cockpit/zfs/
 	cat << EOF | tee -i /etc/cockpit/zfs/shares.conf
 # COCKPIT ZFS MANAGER
 # WARNING: DO NOT EDIT, AUTO-GENERATED CONFIGURATION
@@ -248,7 +252,7 @@ cat << EOF | tee -i /etc/samba/smb.conf
     include = registry
 EOF
 
-cat << EOF | tee -i /etc/samba/import.templates
+cat << EOF | tee -i /etc/samba/import.template
 [global]
     workgroup = WORKGROUP
     log file = /var/log/samba/log.%m
