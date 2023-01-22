@@ -131,8 +131,8 @@ if [[ "$(arch)" == "aarch64" ]]; then
   sed -i "s/amd64/aarch64/g" ./znapzend/DEBIAN/control
   sed -i "s/x86_64-linux-gnu/aarch64-linux-gnu/g" znapzend/usr/bin/*
   mv znapzend/usr/lib/x86_64-linux-gnu znapzend/usr/lib/aarch64-linux-gnu
-  dpkg-deb -b znapzend znapzend_${znapzend_version}_aarch64.deb
-  apt install ./znapzend_${znapzend_version}_aarch64.deb
+  dpkg-deb -b znapzend znapzend_${znapzend_version}_arm64.deb
+  apt install ./znapzend_${znapzend_version}_arm64.deb
 fi
 
 
