@@ -3,15 +3,14 @@ prog="$(basename "$0")"
 
 usage() {
 	cat >&2 <<-EOF
-	usage: $prog [-h] [-U USERNAME] [-P PASSWORD] [-H HOSTNAME] [-D DOMAIN] [-Z POOL] [-S SHARE] [-A ADDONS] [-F]
+	usage: $prog [-h] [-U USERNAME] [-P PASSWORD] [-H HOSTNAME] [-D DOMAIN] [-A ADDONS] [-S SHARE]
 	  installs nasbeery onto your raspberry pi os
     -U USERNAME  Username for SSH, Cockpit and SMB Login (default: pi)
     -P PASSWORD  Password for SSH, Cockpit and SMB Login (min. 8 chars, default: password prompt)
     -H HOSTNAME  Hostname of this nasbeery (default: nasbeery)
     -D DOMAIN    Domain name of this nasbeery (default: bashclub.lan)
-    -S SHARE     Name of the SMB share to create (default: share)
     -A ADDONS    Comma separated list of addons to install (ispconfig, docker)
-    -F           Enforce formatting disks - WARNING: Destroys all existing data
+    -S SHARE     Name of the SMB share to create (default: share)
   ---------------------------------------------------------------------------
     (C) 2022     nasbeery installer by bashclub (https://github.com/bashclub)
   ---------------------------------------------------------------------------
@@ -19,7 +18,7 @@ usage() {
 	exit $1
 }
 
-USERNAME=pi
+USERNAME=nasbeery
 HOSTNAME=nasbeery
 DOMAIN=bashclub.lan
 FORMAT=0
@@ -28,14 +27,13 @@ ZPOOL=tank
 SHARE=share
 BASE_REPO=https://github.com/bashclub/nasbeery
 
-while getopts "hU:P:H:D:FIZ:S:" opt; do
+while getopts "hU:P:H:D:A:S:" opt; do
   case $opt in
     h) usage 0 ;;
     U) USERNAME=$OPTARG ;;
     P) PASSWORD=$OPTARG PASSWORD_REPEAT=$OPTARG ;;
     H) HOSTNAME=$OPTARG ;;
     D) DOMAIN=$OPTARG ;;
-    F) FORMAT=1 ;;
     A) ADDONS=$OPTARG ;;
     S) SHARE=$OPTARG ;;
     *) usage 1 ;;
@@ -43,66 +41,61 @@ while getopts "hU:P:H:D:FIZ:S:" opt; do
 done
 shift $((OPTIND-1))
 
-if [[ $(ls nasbeery.conf) ]]; then
+if [ -f nasbeery.conf ]; then
   source nasbeery.conf
 else
   cat << EOF > nasbeery.conf
 USERNAME=$USERNAME
 HOSTNAME=$HOSTNAME
 DOMAIN=$DOMAIN
-FORMAT=$FORMAT
 ADDONS=$ADDONS
 SHARE=$SHARE
 EOF
 fi
 
 # Change password for Samba and Terminal
-while [[ "$PASSWORD" != "$PASSWORD_REPEAT" || ${#PASSWORD} -lt 8 ]]; do
+while [[ "$PASSWORD" != "$PASSWORD_REPEAT" || ${#PASSWORD} -le 8 ]]; do
   PASSWORD=$(whiptail --backtitle "NASBEERY SETUP" --title "Set password!" --passwordbox "${PASSWORD_invalid_message}Please set a password for Terminal, Samba and Backupwireless\n(At least 8 characters!):" 10 75 3>&1 1>&2 2>&3)
   PASSWORD_REPEAT=$(whiptail --backtitle "NASBEERY SETUP" --title "Set password!" --passwordbox "Please repeat the Password:" 10 70 3>&1 1>&2 2>&3)
   PASSWORD_invalid_message="ERROR: Password is too short, or not matching! \n\n"
 done
 
-# check current zfs state
-if [[ $(lsmod | grep -E ^zfs) ]] && [[ $FORMAT -eq 0 ]]; then
-    # module is loaded
-    whiptail --title "Possible data loss!" \
-    --backtitle "NASBEERY SETUP" \
-    --yes-button "PRESERVE DATA" \
-    --no-button  "FORMAT DISKS!" \
-    --yesno "Would you like to preserve you existing ZFS data from a previous installation?" 10 75
-    FORMAT=$?
-fi
 
-# add extra apt keys
-echo "Add wsdd apt repo key"
-sudo apt-key adv --fetch-keys https://pkg.ltec.ch/public/conf/ltec-ag.gpg.key
-
-# add extra apt repos
-echo "Add wsdd apt repo url"
-echo "deb https://pkg.ltec.ch/public/ $(lsb_release -cs) main" | sudo tee -i /etc/apt/sources.list.d/wsdd.list
-
-echo "Add debian bullseye backports repo"
-echo "deb http://ftp.de.debian.org/debian/ bullseye-backports main contrib non-free" | sudo tee -i /etc/apt/sources.list.d/bulleye-backports.list
+whiptail --title "Possible data loss!" \
+--backtitle "NASBEERY SETUP" \
+--yes-button "PRESERVE DATA" \
+--no-button  "FORMAT DISKS!" \
+--yesno "Would you like to preserve you existing ZFS data from a previous installation?" 10 75
+FORMAT=$?
 
 # pin cockpit to buster backports
 echo "Configure apt to install cockpit from backports repo"
-cat << EOF | sudo tee -i /etc/apt/preferences.d/99-cockpit
+cat << EOF | tee -i /etc/apt/preferences.d/99-cockpit
 Package: cockpit cockpit-*
 Pin: release a=bullseye-backports
 Pin-Priority: 900
 EOF
 
+grep contrib /etc/apt/sources.list
+if [ $? -gt 0 ]; then
+  sed -i "s/main/main contrib non-free/g" /etc/apt/sources.list
+fi
+
+echo "Add debian bullseye backports repo"
+echo "deb http://ftp.de.debian.org/debian/ bullseye-backports main contrib non-free" | tee -i /etc/apt/sources.list.d/bulleye-backports.list
+
 # update system and install packages
 echo "Updating package lists"
-sudo apt -qq update
+apt -qq update
 echo "Installing dist-upgrade"
-DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical sudo apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" dist-upgrade
+DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" dist-upgrade
 echo "Detecting Architecture"
 if [[ $(dpkg --get-selections | grep -m1 "raspberrypi-kernel") ]]; then
 	headers="raspberrypi-kernel-headers"
 elif [[ $(dpkg --get-selections | grep -E -m1 "linux-image-current-rockchip64") ]]; then
 	headers="linux-headers-current-rockchip64"
+elif [[ $(dpkg --get-selections | grep -E -m1 "linux-image-edge-rockchip64") ]]; then
+	headers="linux-edge-current-rockchip64"
 elif [[ $(dpkg --get-selections | grep -E -m1 "linux-image-current-meson64") ]]; then
 	headers="linux-headers-current-meson64"
 elif [[ $(dpkg --get-selections | grep -E -m1 "linux-image-edge-meson64") ]]; then
@@ -111,49 +104,91 @@ elif [[ $(dpkg --get-selections | grep -m1 "linux-image-amd64") ]]; then
 	headers="linux-headers-amd64"
 fi
 echo "Intalling required packages"
-DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical sudo apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install $headers acl samba-dsdb-modules samba-vfs-modules samba wsdd ntpdate git apt-transport-https gnupg2 software-properties-common vim htop zfs-dkms zfsutils-linux zfs-auto-snapshot wsdd net-tools dnsutils
+DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install $headers ntpdate git apt-transport-https gnupg2 software-properties-common vim htop net-tools dnsutils dpkg-dev
+
+# add extra apt keys
+echo "Add wsdd apt repo key"
+wget -O - https://pkg.ltec.ch/public/conf/ltec-ag.gpg.key | gpg --dearmor | tee -i /etc/apt/trusted.gpg.d/wsdd.gpg
+
+# add extra apt repos
+echo "Add wsdd apt repo url"
+echo "deb [signed-by=/etc/apt/trusted.gpg.d/wsdd.gpg] https://pkg.ltec.ch/public/ $(lsb_release -cs) main" | tee -i /etc/apt/sources.list.d/wsdd.list
+
+echo "add 45drives repo key"
+wget -O - https://repo.45drives.com/key/gpg.asc | gpg --dearmor | tee -i /etc/apt/trusted.gpg.d/45drives.gpg
+
+echo "Add 45drives apt repo url"
+echo "deb [signed-by=/etc/apt/trusted.gpg.d/45drives.gpg arch=amd64] https://repo.45drives.com/debian focal main" > /etc/apt/sources.list.d/45drives.list
+
+echo "Updating package lists"
+apt -qq update
+echo "Installing samba"
+DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install -t bullseye-backports acl samba-dsdb-modules samba-vfs-modules samba winbind wsdd zfs-dkms zfsutils-linux zfs-auto-snapshot
+
+if [[ "$(arch)" == "aarch64" ]]; then
+  znapzend_version=$(apt search znapzend 2>/dev/null | grep znapzend | cut -d ' ' -f2)
+  wget -O znapzend_${znapzend_version}_amd64.deb https://repo.45drives.com/debian/pool/main/z/znapzend/znapzend_${znapzend_version}_amd64.deb
+  mkdir znapzend
+  dpkg-deb -R znapzend_${znapzend_version}_amd64.deb ./znapzend
+  sed -i "s/amd64/arm64/g" ./znapzend/DEBIAN/control
+  sed -i "s/x86_64-linux-gnu/aarch64-linux-gnu/g" znapzend/usr/bin/*
+  mv znapzend/usr/lib/x86_64-linux-gnu znapzend/usr/lib/aarch64-linux-gnu
+  dpkg-deb -b znapzend znapzend_${znapzend_version}_arm64.deb
+  apt install ./znapzend_${znapzend_version}_arm64.deb
+  systemctl disable znapzend.service
+  rm -r znapzend*
+fi
+
 echo "Installing cockpit"
-DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical sudo apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install --no-install-recommends cockpit
+DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install --no-install-recommends cockpit cockpit-identities cockpit-file-sharing cockpit-navigator cockpit-zfs-manager cockpit-benchmark
 
 echo "Activate zfs module"
-sudo modprobe zfs
+modprobe zfs
 
 echo "Update time via ntp"
-sudo ntpdate-debian -b > /dev/null
+ntpdate-debian -b > /dev/null
 
+rootfs=$(grep " / " /proc/mounts | cut -d'/' -f3)
+if [[ "$rootfs" == *"nvme"* ]] || [[ "$rootfs" == *"mmcblk"* ]]; then
+  rootdisk=${rootfs::-3}
+else
+  rootdisk=${rootfs::1}
+fi
+
+zdisks=$(echo $(lsblk -nd -I 8,259,179 -o name | grep -v ${rootdisk}) | cut -d' ' -f1-2)
 case $FORMAT in
    0) echo "Your ZFS Data will be preserved";;
    1) echo "Existing data on the drives will be deleted..."
-        sudo zpool destroy $ZPOOL
-        sudo zpool create -f -o autoexpand=on -o ashift=12 $ZPOOL mirror sda sdb
+        zpool destroy $ZPOOL
+        zpool create -f -o autoexpand=on -o ashift=12 $ZPOOL mirror $zdisks
         echo "Regenerate ssh host keys"
-        sudo rm -f /etc/ssh/ssh_host_*
-        sudo ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N ""
-        sudo ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N ""
+        rm -f /etc/ssh/ssh_host_*
+        ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N ""
+        ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N ""
         ;;
    255) echo "[ESC] key pressed >> EXIT" &&  exit;;
 esac
 
 echo "Hadening ssh service"
 echo "Enable the RSA and ED25519 keys"
-sudo sed -i 's/^\#HostKey \/etc\/ssh\/ssh_host_\(rsa\|ed25519\)_key$/HostKey \/etc\/ssh\/ssh_host_\1_key/g' /etc/ssh/sshd_config
+sed -i 's/^\#HostKey \/etc\/ssh\/ssh_host_\(rsa\|ed25519\)_key$/HostKey \/etc\/ssh\/ssh_host_\1_key/g' /etc/ssh/sshd_config
 echo "Remove small Diffie-Hellman moduli"
-awk '$5 >= 3071' /etc/ssh/moduli | sudo tee -i /etc/ssh/moduli.safe
-sudo mv -f /etc/ssh/moduli.safe /etc/ssh/moduli
+awk '$5 >= 3071' /etc/ssh/moduli > /etc/ssh/moduli.safe
+mv -f /etc/ssh/moduli.safe /etc/ssh/moduli
 echo "Restrict supported key exchange, cipher, and MAC algorithms"
-echo -e "\n# Restrict key exchange, cipher, and MAC algorithms, as per sshaudit.com\n# hardening guide.\nKexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,diffie-hellman-group-exchange-sha256\nCiphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr\nMACs hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,umac-128-etm@openssh.com\nHostKeyAlgorithms ssh-ed25519,ssh-ed25519-cert-v01@openssh.com,sk-ssh-ed25519@openssh.com,sk-ssh-ed25519-cert-v01@openssh.com,rsa-sha2-256,rsa-sha2-512,rsa-sha2-256-cert-v01@openssh.com,rsa-sha2-512-cert-v01@openssh.com" | sudo tee -i /etc/ssh/sshd_config.d/ssh-audit_hardening.conf
+echo -e "\n# Restrict key exchange, cipher, and MAC algorithms, as per sshaudit.com\n# hardening guide.\nKexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,diffie-hellman-group-exchange-sha256\nCiphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr\nMACs hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,umac-128-etm@openssh.com\nHostKeyAlgorithms ssh-ed25519,ssh-ed25519-cert-v01@openssh.com,sk-ssh-ed25519@openssh.com,sk-ssh-ed25519-cert-v01@openssh.com,rsa-sha2-256,rsa-sha2-512,rsa-sha2-256-cert-v01@openssh.com,rsa-sha2-512-cert-v01@openssh.com" | tee -i /etc/ssh/sshd_config.d/ssh-audit_hardening.conf
 
 if [ ! $(zfs list $ZPOOL/$SHARE) ] ; then
 	echo "Creating $ZPOOL/$SHARE"
-	sudo zfs create -o compression=lz4 $ZPOOL/$SHARE
+	zfs create -o compression=lz4 $ZPOOL/$SHARE
 fi
 echo "Settings permissions on $ZPOOL/$SHARE"
-sudo chmod -R 770 /$ZPOOL
-sudo chown -R $USERNAME:root /$ZPOOL
+chmod -R 770 /$ZPOOL
+chown -R $USERNAME:root /$ZPOOL
 
 echo "Seting hostname and fqdn"
-echo "$HOSTNAME" | sudo tee -i /etc/hostname
-cat << EOF | sudo tee -i /etc/hosts
+echo "$HOSTNAME" | tee -i /etc/hostname
+cat << EOF | tee -i /etc/hosts
 # Host addresses
 127.0.0.1  localhost
 127.0.1.1  $HOSTNAME.$DOMAIN $HOSTNAME
@@ -163,26 +198,14 @@ ff02::2    ip6-allrouters
 EOF
 
 echo "Configuring user"
-sudo useradd $USERNAME
-echo "$USERNAME:$PASSWORD" | sudo chpasswd
-sudo smbpasswd -x $USERNAME
-(echo $PASSWORD; echo $PASSWORD) | sudo smbpasswd -a $USERNAME
-
-echo "Install or update cockpit zfs manager"
-if [[ $(ls /usr/src/cockpit-zfs-manager) ]] ; then
-	cd /usr/src/cockpit-zfs-manager
-	sudo git config pull.rebase true
-	sudo git pull
-else
-	sudo git clone https://github.com/45drives/cockpit-zfs-manager.git /usr/src/cockpit-zfs-manager
-fi
-sudo cp -r /usr/src/cockpit-zfs-manager/zfs /usr/share/cockpit
-
-sudo mkdir -p /etc/cockpit/zfs/shares
-sudo mkdir -p /etc/cockpit/zfs/snapshots
+useradd -m -s /bin/bash $USERNAME
+echo "$USERNAME:$PASSWORD" | chpasswd
+smbpasswd -x $USERNAME
+(echo $PASSWORD; echo $PASSWORD) | smbpasswd -a $USERNAME
+usermod -aG sudo $USERNAME
 
 echo "Writing cockpit configuration"
-cat << EOF | sudo tee -i /etc/cockpit/zfs/config.json
+cat << EOF | tee -i /etc/cockpit/zfs/config.json
 {
   "#1": "COCKPIT ZFS MANAGER",
   "#2": "WARNING: DO NOT EDIT, AUTO-GENERATED CONFIGURATION",
@@ -226,23 +249,29 @@ cat << EOF | sudo tee -i /etc/cockpit/zfs/config.json
 }
 EOF
 
-if [[ $(ls /etc/cockpit/zfs/shares.conf) ]]; then
+if [ -f /etc/cockpit/zfs/shares.conf ]; then
 	echo "Creating cockpit zfs shares conf"
-	cat << EOF | sudo tee -i /etc/cockpit/zfs/shares.conf
+  mkdir -p /etc/cockpit/zfs/
+	cat << EOF | tee -i /etc/cockpit/zfs/shares.conf
 # COCKPIT ZFS MANAGER
 # WARNING: DO NOT EDIT, AUTO-GENERATED CONFIGURATION
 EOF
 fi
 
 echo "Configure zfs-auto-snapshot: change retention from 24 to 48h and 12 to 3 months"
-sudo sed -i 's/24/48/g' /etc/cron.hourly/zfs-auto-snapshot
-sudo sed -i 's/12/3/g' /etc/cron.monthly/zfs-auto-snapshot
+sed -i 's/24/48/g' /etc/cron.hourly/zfs-auto-snapshot
+sed -i 's/12/3/g' /etc/cron.monthly/zfs-auto-snapshot
 
 echo "Configure RAID led"
-echo -e 'PATH="/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin"\n*/1 * * * * root echo 14 > /sys/class/gpio/export 2> /dev/null;echo out > /sys/class/gpio/gpio14/direction ; zpool import -fa -d /dev/ > /dev/null; zpool list| grep -q ONLINE; echo \$? > /sys/class/gpio/gpio14/value' | sudo tee -i /etc/cron.d/raidled
+echo -e 'PATH="/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin"\n*/1 * * * * root echo 14 > /sys/class/gpio/export 2> /dev/null;echo out > /sys/class/gpio/gpio14/direction ; zpool import -fa -d /dev/ > /dev/null; zpool list| grep -q ONLINE; echo \$? > /sys/class/gpio/gpio14/value' | tee -i /etc/cron.d/raidled
 
 echo "Write samba server configuration"
-cat << EOF | sudo tee -i /etc/samba/smb.conf
+cat << EOF | tee -i /etc/samba/smb.conf
+[global]
+    include = registry
+EOF
+
+cat << EOF | tee -i /etc/samba/import.template
 [global]
     workgroup = WORKGROUP
     log file = /var/log/samba/log.%m
@@ -273,6 +302,8 @@ cat << EOF | sudo tee -i /etc/samba/smb.conf
     directory mask = 0770
 EOF
 
+net conf import /etc/samba/import.template
+
 #### PLUGIN INSTALLATION ####
 for addon in $ADDONS; do
   wget -O ./$addon $base_repo/raw/main/plugins/$addon
@@ -280,9 +311,9 @@ for addon in $ADDONS; do
 done
 
 echo "Restart samba services"
-sudo systemctl enable smbd nmbd wsdd
+systemctl enable smbd nmbd wsdd
 
 echo "############################################"
 echo "nasbeery installation finished! rebooting..."
 echo "############################################"
-sudo reboot
+reboot
