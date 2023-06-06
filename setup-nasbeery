@@ -18,6 +18,20 @@ usage() {
 	exit $1
 }
 
+if [ -f /etc/os-release ]; then
+  source /etc/os-release
+else
+  echo "File /etc/os-release not found. Please refer to the documentation if your distro is supported."
+  exit 1
+fi
+
+if [[ ${VERSION_CODENAME} == "bullseye" ]] || [[ ${VERSION_CODENAME} == "bookworm" ]]; then
+  echo "Your distro $ID ${VERSION_CODENAME} is supported."
+else
+  echo "Your distro $ID ${VERSION_CODENAME} is not supported."
+  exit 1
+fi
+
 USERNAME=nasbeery
 HOSTNAME=nasbeery
 DOMAIN=bashclub.lan
@@ -72,7 +86,7 @@ FORMAT=$?
 echo "Configure apt to install cockpit from backports repo"
 cat << EOF | tee -i /etc/apt/preferences.d/99-cockpit
 Package: cockpit cockpit-*
-Pin: release a=bullseye-backports
+Pin: release a=${VERSION_CODENAME}-backports
 Pin-Priority: 900
 EOF
 
@@ -81,8 +95,8 @@ if [ $? -gt 0 ]; then
   sed -i "s/main/main contrib non-free/g" /etc/apt/sources.list
 fi
 
-echo "Add debian bullseye backports repo"
-echo "deb http://ftp.de.debian.org/debian/ bullseye-backports main contrib non-free" | tee -i /etc/apt/sources.list.d/bulleye-backports.list
+echo "Add debian ${VERSION_CODENAME} backports repo"
+echo "deb http://ftp.de.debian.org/debian/ ${VERSION_CODENAME}-backports main contrib non-free" | tee -i /etc/apt/sources.list.d/bulleye-backports.list
 
 # update system and install packages
 echo "Updating package lists"
@@ -123,7 +137,7 @@ echo "deb [signed-by=/etc/apt/trusted.gpg.d/45drives.gpg arch=amd64] https://rep
 echo "Updating package lists"
 apt -qq update
 echo "Installing samba"
-DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install -t bullseye-backports acl samba-dsdb-modules samba-vfs-modules samba winbind wsdd zfs-dkms zfsutils-linux zfs-auto-snapshot
+DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install -t ${VERSION_CODENAME}-backports acl samba-dsdb-modules samba-vfs-modules samba winbind wsdd zfs-dkms zfsutils-linux zfs-auto-snapshot
 
 if [[ "$(arch)" == "aarch64" ]]; then
   znapzend_version=$(apt search znapzend 2>/dev/null | grep znapzend | cut -d ' ' -f2)
