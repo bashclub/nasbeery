@@ -120,13 +120,15 @@ fi
 echo "Intalling required packages"
 DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install $headers ntpdate git apt-transport-https gnupg2 software-properties-common vim htop net-tools dnsutils dpkg-dev
 
-# add extra apt keys
-echo "Add wsdd apt repo key"
-wget -O - https://pkg.ltec.ch/public/conf/ltec-ag.gpg.key | gpg --dearmor | tee -i /etc/apt/trusted.gpg.d/wsdd.gpg
+if [[ ${VERSION_CODENAME} == "bullseye" ]]; then
+  # add extra apt keys
+  echo "Add wsdd apt repo key"
+  wget -O - https://pkg.ltec.ch/public/conf/ltec-ag.gpg.key | gpg --dearmor | tee -i /etc/apt/trusted.gpg.d/wsdd.gpg
 
-# add extra apt repos
-echo "Add wsdd apt repo url"
-echo "deb [signed-by=/etc/apt/trusted.gpg.d/wsdd.gpg] https://pkg.ltec.ch/public/ $(lsb_release -cs) main" | tee -i /etc/apt/sources.list.d/wsdd.list
+  # add extra apt repos
+  echo "Add wsdd apt repo url"
+  echo "deb [signed-by=/etc/apt/trusted.gpg.d/wsdd.gpg] https://pkg.ltec.ch/public/ $(lsb_release -cs) main" | tee -i /etc/apt/sources.list.d/wsdd.list
+fi
 
 echo "add 45drives repo key"
 wget -O - https://repo.45drives.com/key/gpg.asc | gpg --dearmor | tee -i /etc/apt/trusted.gpg.d/45drives.gpg
