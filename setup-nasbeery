@@ -156,7 +156,7 @@ if [[ "$(arch)" == "aarch64" ]]; then
 fi
 
 echo "Installing cockpit"
-DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install --no-install-recommends cockpit cockpit-identities cockpit-file-sharing cockpit-navigator cockpit-zfs-manager cockpit-benchmark
+DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install --no-install-recommends cockpit cockpit-identities cockpit-file-sharing cockpit-navigator cockpit-zfs-manager cockpit-benchmark cockpit-pcp
 
 echo "Activate zfs module"
 modprobe zfs
