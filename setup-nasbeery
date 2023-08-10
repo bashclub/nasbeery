@@ -25,7 +25,7 @@ else
   exit 1
 fi
 
-if [[ ${VERSION_CODENAME} == "bullseye" ]] || [[ ${VERSION_CODENAME} == "bookworm" ]]; then
+if [[ ${VERSION_CODENAME} == "bullseye" ]] || [[ ${VERSION_CODENAME} == "bookworm" ]] || [[ ${VERSION_CODENAME} == "jammy" ]] || [[ ${VERSION_CODENAME} == "lunar" ]]; then
   echo "Your distro $ID ${VERSION_CODENAME} is supported."
 else
   echo "Your distro $ID ${VERSION_CODENAME} is not supported."
@@ -82,21 +82,24 @@ whiptail --title "Possible data loss!" \
 --yesno "Would you like to preserve you existing ZFS data from a previous installation?" 10 75
 FORMAT=$?
 
-# pin cockpit to buster backports
-echo "Configure apt to install cockpit from backports repo"
-cat << EOF | tee -i /etc/apt/preferences.d/99-cockpit
+if [[ $ID == "debian" ]]; then
+
+  # pin cockpit to buster backports
+  echo "Configure apt to install cockpit from backports repo"
+  cat << EOF | tee -i /etc/apt/preferences.d/99-cockpit
 Package: cockpit cockpit-*
 Pin: release a=${VERSION_CODENAME}-backports
 Pin-Priority: 900
 EOF
 
-grep contrib /etc/apt/sources.list
-if [ $? -gt 0 ]; then
-  sed -i "s/main/main contrib non-free/g" /etc/apt/sources.list
-fi
+  grep contrib /etc/apt/sources.list
+  if [ $? -gt 0 ]; then
+    sed -i "s/main/main contrib non-free/g" /etc/apt/sources.list
+  fi
 
-echo "Add debian ${VERSION_CODENAME} backports repo"
-echo "deb http://ftp.de.debian.org/debian/ ${VERSION_CODENAME}-backports main contrib non-free" | tee -i /etc/apt/sources.list.d/bulleye-backports.list
+  echo "Add debian ${VERSION_CODENAME} backports repo"
+  echo "deb http://ftp.de.debian.org/debian/ ${VERSION_CODENAME}-backports main contrib non-free" | tee -i /etc/apt/sources.list.d/${VERSION_CODENAME}-backports.list
+fi
 
 # update system and install packages
 echo "Updating package lists"
