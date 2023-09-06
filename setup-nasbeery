@@ -102,6 +102,8 @@ elif [[ $(dpkg --get-selections | grep -E -m1 "linux-image-edge-meson64") ]]; th
 	headers="linux-headers-edge-meson64"
 elif [[ $(dpkg --get-selections | grep -m1 "linux-image-generic") ]]; then
 	headers="linux-headers-generic"
+elif [[ $(dpkg --get-selections | grep -m1 "linux-image-raspi") ]]; then
+	headers="linux-headers-raspi"
 elif [[ $(dpkg --get-selections | grep -m1 "linux-image-amd64") ]]; then
 	headers="linux-headers-amd64"
 fi
