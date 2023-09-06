@@ -100,6 +100,8 @@ elif [[ $(dpkg --get-selections | grep -E -m1 "linux-image-current-meson64") ]];
 	headers="linux-headers-current-meson64"
 elif [[ $(dpkg --get-selections | grep -E -m1 "linux-image-edge-meson64") ]]; then
 	headers="linux-headers-edge-meson64"
+elif [[ $(dpkg --get-selections | grep -m1 "linux-image-generic") ]]; then
+	headers="linux-headers-generic"
 elif [[ $(dpkg --get-selections | grep -m1 "linux-image-amd64") ]]; then
 	headers="linux-headers-amd64"
 fi
