@@ -113,6 +113,10 @@ elif [[ $(dpkg --get-selections | grep -m1 "linux-image-raspi") ]]; then
   headers="linux-headers-raspi"
 elif [[ $(dpkg --get-selections | grep -m1 "linux-image-arm64") ]]; then
   headers="linux-headers-arm64"
+elif [[ $(dpkg --get-selections | grep -m1 "linux-image-generic") ]]; then
+	headers="linux-headers-generic"
+elif [[ $(dpkg --get-selections | grep -m1 "linux-image-riscv64") ]]; then
+	headers="linux-headers-riscv64"
 elif [[ $(dpkg --get-selections | grep -E -m1 "linux-image-current-rockchip64") ]]; then
 	headers="linux-headers-current-rockchip64"
 elif [[ $(dpkg --get-selections | grep -E -m1 "linux-image-edge-rockchip64") ]]; then
@@ -148,16 +152,18 @@ apt -qq update
 echo "Installing samba"
 DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq -o DPkg::options::="--force-confdef" -o DPkg::options::="--force-confold" install -t ${VERSION_CODENAME}-backports acl samba-dsdb-modules samba-vfs-modules samba winbind wsdd zfs-dkms zfsutils-linux zfs-auto-snapshot
 
-if [[ "$(arch)" == "aarch64" ]]; then
+ARCH=$(arch)
+
+if [[ "${ARCH}" == "aarch64" ]]; then
   znapzend_version=$(apt search znapzend 2>/dev/null | grep znapzend | cut -d ' ' -f2)
   wget -O znapzend_${znapzend_version}_amd64.deb https://repo.45drives.com/debian/pool/main/z/znapzend/znapzend_${znapzend_version}_amd64.deb
   mkdir znapzend
   dpkg-deb -R znapzend_${znapzend_version}_amd64.deb ./znapzend
-  sed -i "s/amd64/arm64/g" ./znapzend/DEBIAN/control
-  sed -i "s/x86_64-linux-gnu/aarch64-linux-gnu/g" znapzend/usr/bin/*
-  mv znapzend/usr/lib/x86_64-linux-gnu znapzend/usr/lib/aarch64-linux-gnu
-  dpkg-deb -b znapzend znapzend_${znapzend_version}_arm64.deb
-  apt install ./znapzend_${znapzend_version}_arm64.deb
+  sed -i "s/amd64/${ARCH}/g" ./znapzend/DEBIAN/control
+  sed -i "s/x86_64-linux-gnu/${ARCH}-linux-gnu/g" znapzend/usr/bin/*
+  mv znapzend/usr/lib/x86_64-linux-gnu znapzend/usr/lib/${ARCH}-linux-gnu
+  dpkg-deb -b znapzend znapzend_${znapzend_version}_${ARCH}.deb
+  apt install ./znapzend_${znapzend_version}_${ARCH}.deb
   systemctl disable znapzend.service
   rm -r znapzend*
 fi
